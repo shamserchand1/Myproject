@@ -3,126 +3,301 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Sheet API Interface</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-        }
-        h2 {
-            color: #333;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        th {
-            background: #007BFF;
-            color: white;
-        }
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        button {
-            background: #007BFF;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #0056b3;
-        }
-    </style>
+    <title>Search Employee by Aadhar</title>
+    <style>/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background: #f0f2f5;
+    text-align: center;
+    padding: 20px;
+}
+
+.container {
+    max-width: 600px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    margin: auto;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* Input Styling */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    text-align: center;
+    outline: none;
+    margin-bottom: 10px;
+    transition: border-color 0.3s ease;
+}
+
+input:focus {
+    border-color: #007bff;
+    box-shadow: 0px 0px 5px rgba(0, 123, 255, 0.5);
+}
+
+/* Button Styling */
+button {
+    width: 100%;
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 12px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background 0.3s;
+    position: relative;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+/* Loading Spinner Styling */
+.loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Result Box */
+.result {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 8px;
+    display: none;
+    text-align: center;
+    background: #fff;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.blacklisted {
+    position: relative;
+}
+
+.blacklisted::before {
+    content: "Blacklisted";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    font-size: 30px;
+    font-weight: bold;
+    color: rgba(255, 0, 0, 0.3);
+    border: 5px solid rgba(255, 0, 0, 0.5); /* Red border */
+    padding: 10px 30px;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    z-index: 1;
+    pointer-events: none;
+    user-select: none;
+}
+
+
+.blacklisted .status {
+    font-size: 18px;
+    font-weight: bold;
+    color: red;
+}
+
+/* Table Styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    border-radius: 8px;
+    border:2px;
+    overflow: hidden;
+}
+
+table, th, td {
+    border: 2px;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+th {
+    background: #007bff;
+    color: white;
+}
+
+tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+tr:hover {
+    background: #f1f1f1;
+}
+
+/* Error Message Styling */
+.error-message {
+    color: #d9534f;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .container {
+        width: 90%;
+        padding: 15px;
+    }
+
+    input, button {
+        font-size: 14px;
+        padding: 10px;
+    }
+}</style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Google Sheet API Interface</h2>
+    <div class="container">
+        <h2>Search Employee by Aadhar</h2>
 
-    <h3>Add New Entry</h3>
-    <input type="text" id="name" placeholder="Enter Name">
-    <input type="email" id="email" placeholder="Enter Email">
-    <button onclick="addData()">Submit</button>
+        <div class="input-group">
+            <input type="text" id="aadharInput" placeholder="0000-0000-0000" maxlength="14">
+            <button id="searchButton" onclick="fetchData()">Search
+                <div id="loadingSpinner" class="loading-spinner"></div>
+            </button>
+        </div>
 
-    <h3>Stored Data</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Email</th>
-            </tr>
-        </thead>
-        <tbody id="data-table">
-            <!-- Data will be inserted here -->
-        </tbody>
-    </table>
-</div>
+        <!-- Result Div -->
+        <div id="outputResult" class="result"></div>
 
-<script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzhaJ6BgB_Gk9V8V68p6-QObRBkHCi-QOEZTs5LE3YPe29e3BdU1XVXDg_wa83kpLzo/exec";
+        <!-- Error Message Div -->
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </div>
 
-    // Function to fetch and display data
-    function fetchData() {
-        fetch(API_URL + "?action=read")
-            .then(response => response.json())
-            .then(data => {
-                const tableBody = document.getElementById("data-table");
-                tableBody.innerHTML = ""; // Clear existing data
-                
-                // Skip the header row and display data
-                data.slice(1).forEach(row => {
-                    let tr = document.createElement("tr");
-                    tr.innerHTML = `<td>${row[0]}</td><td>${row[1]}</td>`;
-                    tableBody.appendChild(tr);
-                });
-            })
-            .catch(error => console.error("Error fetching data:", error));
+    <script>
+      const apiUrl = "https://script.google.com/macros/s/AKfycbwmHcyXApoXEJrl-phPk9tBmx5xuUUN4cy99g2cy1GQz7QVbjX0Gk6NQ5yMkm3jACDN/exec";
+
+// Format Aadhar Input
+document.getElementById("aadharInput").addEventListener("input", function (event) {
+    let value = event.target.value.replace(/\D/g, ""); // Remove non-numeric characters
+    if (value.length > 12) value = value.slice(0, 12);
+
+    let formattedValue = value
+        .replace(/(\d{4})(\d{4})(\d{4})/, "$1-$2-$3") // Format: 0000-0000-0000
+        .replace(/-$/, ""); // Prevent trailing hyphen
+
+    event.target.value = formattedValue;
+});
+
+// Trigger search on Tab or Enter key press
+document.getElementById("aadharInput").addEventListener("keydown", function (event) {
+    if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        fetchData();
+    }
+});
+
+function fetchData() {
+    let aadharNumber = document.getElementById("aadharInput").value.replace(/-/g, ""); // Remove hyphens
+    let outputDiv = document.getElementById("outputResult");
+    let errorDiv = document.getElementById("errorMessage");
+    let searchButton = document.getElementById("searchButton");
+    let loadingSpinner = document.getElementById("loadingSpinner");
+
+    // ✅ Reset divs before making API call
+    outputDiv.innerHTML = "";
+    outputDiv.style.display = "none";  // Hide result div
+    errorDiv.innerHTML = "";
+    errorDiv.style.display = "none";  // Hide error message div
+
+    if (aadharNumber.length !== 12) {
+        alert("Please enter a valid 12-digit Aadhar number.");
+        return;
     }
 
-    // Function to add new data
-    function addData() {
-        const name = document.getElementById("name").value.trim();
-        const email = document.getElementById("email").value.trim();
+    // Show loading spinner on search button
+    searchButton.disabled = true;
+    loadingSpinner.style.display = "inline-block";
 
-        if (!name || !email) {
-            alert("Please fill in both fields.");
-            return;
-        }
+    let requestUrl = `${apiUrl}?action=readByAadhar&aadharCard=${aadharNumber}`;
 
-        fetch(API_URL + `?action=write&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`)
-            .then(response => response.text())
-            .then(message => {
-                alert(message);
-                document.getElementById("name").value = "";
-                document.getElementById("email").value = "";
-                fetchData(); // Refresh data after adding
-            })
-            .catch(error => console.error("Error adding data:", error));
-    }
+    fetch(requestUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Network response was not ok");
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Hide loading spinner
+            searchButton.disabled = false;
+            loadingSpinner.style.display = "none";
 
-    // Fetch data on page load
-    fetchData();
-</script>
+            // Ensure the result div is shown
+            outputDiv.style.display = "block"; 
+
+            // If no data found
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                errorDiv.style.display = "block";  // Show error message div
+                errorDiv.innerHTML = `<p>❌ No records found for this Aadhar number. Please verify and try again.</p>`;
+                return;
+            }
+
+            // Check if status is "B" (blacklisted)
+            let status = data[0][4] === "B" ? "Blacklisted" : data[0][4];
+            let isBlacklisted = data[0][4] === "B";
+
+            outputDiv.className = isBlacklisted ? "result blacklisted" : "result";
+
+            let result = `
+                <table border="1">
+                    <tr><td>AadharCard</td><td>${data[0][0]}</td></tr>
+                    <tr><td>Card No</td><td>${data[0][1]}</td></tr>
+                    <tr><td>Contractor Name</td><td>${data[0][2]}</td></tr>
+                    <tr><td>Employee Name</td><td>${data[0][3]}</td></tr>
+                    <tr><td>Status</td><td class="status">${status}</td></tr>
+                </table>
+            `;
+            outputDiv.innerHTML = result;
+        })
+        .catch(error => {
+            // Hide loading spinner
+            searchButton.disabled = false;
+            loadingSpinner.style.display = "none";
+
+            console.error("Error fetching data:", error);
+            errorDiv.style.display = "block";  // Show error message div
+            errorDiv.innerHTML = `<p>⚠️ Unable to retrieve data at the moment. Please try again later.</p>`;
+        });
+}</script>
 
 </body>
 </html>
