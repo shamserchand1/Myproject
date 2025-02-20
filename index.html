@@ -113,10 +113,8 @@
     /* HERO SECTION (Redesigned) */
     #hero {
       position: relative;
-      
       padding: 160px 20px 100px;
       text-align: center;
-
     }
     /* Simplified Profile Container */
     .profile-container {
@@ -168,6 +166,20 @@
     .profile-container .cta-btn:hover {
       background: #e67e22;
       transform: scale(1.05);
+    }
+    
+    /* ABOUT ME SECTION */
+    #about {
+      background: rgba(0, 0, 0, 0.85);
+      padding: 40px 20px;
+      border-radius: 8px;
+      margin-bottom: 60px;
+    }
+    #about p {
+      background: #f39c12;
+      color: #fff;
+      padding: 20px;
+      line-height: 1.5;
     }
     
     /* PROJECTS SECTION */
@@ -299,6 +311,7 @@
     <nav class="desktop-nav">
       <ul>
         <li><a href="#hero">Home</a></li>
+        <li><a href="#about">About</a></li>
         <li><a href="#projects">Projects</a></li>
         <li><a href="#achievements">Achievements</a></li>
         <li><a href="#testimonials">Testimonials</a></li>
@@ -317,6 +330,7 @@
   <div class="mobile-nav" id="mobile-nav" data-aos="fade-up">
     <ul>
       <li><a href="#hero" onclick="toggleMobileNav()">Home</a></li>
+      <li><a href="#about" onclick="toggleMobileNav()">About</a></li>
       <li><a href="#projects" onclick="toggleMobileNav()">Projects</a></li>
       <li><a href="#achievements" onclick="toggleMobileNav()">Achievements</a></li>
       <li><a href="#testimonials" onclick="toggleMobileNav()">Testimonials</a></li>
@@ -341,6 +355,17 @@
         </div>
         <button class="cta-btn" data-aos="fade-up" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Get In Touch</button>
       </div>
+    </section>
+    
+    <!-- About Me Section -->
+    <section id="about" data-aos="fade-up">
+      <h2>About Me</h2>
+      <p><strong>Name:</strong>&nbsp<span id="real-name-text1">Loading...</span></p>
+      <p><strong>Date of Birth:</strong> 26 December 1996</p>
+      <p><strong>Location:</strong> Nepal, Baitadi District</p>
+      <p>
+        I am a visionary developer and creative thinker with a passion for crafting elegant digital experiences. Hailing from the scenic landscapes of Nepal, my journey began in Baitadi District where I nurtured a love for technology and innovation. Recognized for my forward-thinking approach and award-winning projects, I blend artistic flair with technical expertise to transform ideas into captivating digital realities. Whether it's exploring new technologies or immersing myself in local culture, I continually strive to push the boundaries of design and development.
+      </p>
     </section>
     
     <!-- Projects Section -->
@@ -493,6 +518,7 @@
           document.getElementById('profile-img').src = data.avatar_url;
           document.getElementById('profile-name').textContent = realName;
           document.getElementById('real-name-text').textContent = realName;
+          document.getElementById('real-name-text1').textContent = realName;
           document.getElementById('real-name-detail').textContent = realName;
           document.getElementById('footer-name').textContent = realName;
         })
