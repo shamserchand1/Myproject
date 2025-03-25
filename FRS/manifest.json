@@ -1,7 +1,7 @@
 {
   "short_name": "Attendance",
   "name": "Attendance Dashboard",
-  "start_url": "/index.html",
+  "start_url": "/index.htm",
   "display": "standalone",
   "background_color": "#f8f9fa",
   "theme_color": "#007bff",
