@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- PWA Meta Tags -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#007bff" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Attendance Dashboard</title>
+  
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  />
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap"
+    rel="stylesheet"
+  />
+  <!-- Face-api.js -->
+  <script defer src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  
+  <style>
+    body {
+      font-family: "Roboto", sans-serif;
+      background: #f8f9fa;
+      padding-top: 70px;
+    }
+    /* Navbar styling */
+    .navbar {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .navbar-brand {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    /* Install Button */
+    #install-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: none;
+      z-index: 1000;
+    }
+    /* Dropdown styling */
+    .dropdown {
+      position: relative;
+    }
+    .dropdown-toggle::after {
+      display: none;
+    }
+    .dropdown-menu {
+      min-width: 300px;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      position: absolute;
+      top: 60px;
+      right: 0;
+    }
+    .dropdown-menu::before {
+      content: "";
+      position: absolute;
+      top: -10px;
+      right: 16px;
+      border-width: 0 10px 10px;
+      border-style: solid;
+      border-color: transparent transparent #fff transparent;
+    }
+    .dropdown-menu input[readonly] {
+      background-color: #e9ecef;
+      cursor: pointer;
+    }
+    .dropdown-menu .btn {
+      font-size: 0.9rem;
+    }
+    /* Attendance Modal Styles */
+    #media-container {
+      position: relative;
+      width: 320px;
+      height: 240px;
+      margin: auto;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #attendance-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    #captured-face {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    /* Attendance Table Styles */
+    #attendance-table {
+      margin-top: 30px;
+    }
+    /* Pagination Controls */
+    #attendance-pagination {
+      margin-top: 15px;
+    }
+  </style>
+  
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+    import {
+      getAuth,
+      signInWithPopup,
+      GoogleAuthProvider,
+      signOut,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      updateDoc,
+      setDoc,
+      addDoc,
+      serverTimestamp,
+      collection,
+      getDocs,
+      query,
+      where
+    } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+
+    // Firebase configuration – replace with your own config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDaP0RQUOSXRiIVaf3u-wrBE0ck_pt8OxY",
+      authDomain: "axons-fd4e8.firebaseapp.com",
+      databaseURL: "https://axons-fd4e8.firebaseio.com",
+      projectId: "axons-fd4e8",
+      storageBucket: "axons-fd4e8.firebasestorage.app",
+      messagingSenderId: "54666268712",
+      appId: "1:54666268712:web:d59a7d13a4ebed3e5e251d"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+    let currentUser = null; // Holds authenticated user
+    let storedFaceDescriptor = null; // Loaded from profile
+
+    // Global array for attendance records and pagination variables.
+    let attendanceRecords = [];
+    const recordsPerPage = 10;
+    let currentPage = 1;
+
+    // Load face-api.js models from the "models" folder.
+    async function loadFaceApiModels() {
+      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
+      await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
+      await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
+      console.log("Face-api models loaded.");
+    }
+    loadFaceApiModels();
+
+    // Load user's profile and update UI.
+    async function loadProfile(user) {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        document.getElementById("profile-name").value = data.name || "";
+        document.getElementById("profile-employee").value = data.employeeId || "";
+        document.getElementById("profile-mobile").value = data.mobileNumber || "";
+        const enrollBox = document.getElementById("face-enroll-status");
+        if (data.faceDescriptor) {
+          enrollBox.value = "Face successfully enrolled";
+          storedFaceDescriptor = data.faceDescriptor;
+        } else {
+          enrollBox.value = "Click to enroll face";
+          storedFaceDescriptor = null;
+        }
+      }
+    }
+
+    // Update a single field in Firestore.
+    async function updateField(fieldName, newValue) {
+      if (currentUser) {
+        const userRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userRef, { [fieldName]: newValue });
+      }
+    }
+
+    // Toggle edit mode for profile fields.
+    async function toggleEditField(e, inputElement, buttonElement, fieldName) {
+      e.stopPropagation();
+      if (inputElement.hasAttribute("readonly")) {
+        inputElement.removeAttribute("readonly");
+        inputElement.focus();
+        buttonElement.innerHTML = '<i class="fas fa-check"></i>';
+      } else {
+        await updateField(fieldName, inputElement.value);
+        inputElement.setAttribute("readonly", true);
+        buttonElement.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+      }
+    }
+
+    // Helper: Euclidean distance for comparing face descriptors.
+    function euclideanDistance(arr1, arr2) {
+      let sum = 0;
+      for (let i = 0; i < arr1.length; i++) {
+        sum += Math.pow(arr1[i] - arr2[i], 2);
+      }
+      return Math.sqrt(sum);
+    }
+    const THRESHOLD = 0.6; // Adjust threshold as needed
+
+    // Attendance functions
+    let videoStream = null;
+    async function startCamera() {
+      const video = document.getElementById("attendance-video");
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = videoStream;
+        await video.play();
+      } catch (error) {
+        console.error("Error accessing camera: ", error);
+        document.getElementById("attendance-message").textContent = "Error accessing camera.";
+      }
+    }
+
+    function stopCamera() {
+      const video = document.getElementById("attendance-video");
+      if (videoStream) {
+        videoStream.getTracks().forEach((track) => track.stop());
+      }
+      video.srcObject = null;
+    }
+
+    // Mark attendance only if no record exists within the last 5 minutes.
+    async function markAttendance() {
+      if (!currentUser) return;
+      try {
+        // Query all attendance records for this user.
+        const attendanceQuery = query(collection(db, "attendance"), where("userId", "==", currentUser.uid));
+        const querySnapshot = await getDocs(attendanceQuery);
+        let lastTimestamp = 0;
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.timestamp) {
+            const ts = data.timestamp.toMillis();
+            if (ts > lastTimestamp) {
+              lastTimestamp = ts;
+            }
+          }
+        });
+        const now = Date.now();
+        // Check if last attendance is within 5 minutes.
+        if (lastTimestamp !== 0 && (now - lastTimestamp) < 5 * 60 * 1000) {
+          document.getElementById("attendance-message").textContent = "Attendance already marked in the last 5 minutes.";
+          return;
+        }
+        await addDoc(collection(db, "attendance"), {
+          userId: currentUser.uid,
+          employeeId: document.getElementById("profile-employee").value,
+          name: document.getElementById("profile-name").value,
+          timestamp: serverTimestamp(),
+          status: "present"
+        });
+        document.getElementById("attendance-message").textContent = "Attendance marked successfully!";
+        loadAttendanceRecords();
+      } catch (error) {
+        console.error("Error marking attendance: ", error);
+        document.getElementById("attendance-message").textContent = "Error marking attendance.";
+      }
+    }
+
+    // Auto capture and process a frame from the video feed.
+    async function autoCaptureAndProcess() {
+      const video = document.getElementById("attendance-video");
+      const messageElem = document.getElementById("attendance-message");
+      messageElem.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning...';
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext("2d");
+      // Flip horizontally for processing.
+      context.translate(canvas.width, 0);
+      context.scale(-1, 1);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const detection = await faceapi.detectSingleFace(canvas).withFaceLandmarks().withFaceDescriptor();
+      if (detection && detection.descriptor) {
+        const capturedDescriptor = Array.from(detection.descriptor);
+        if (!storedFaceDescriptor) {
+          messageElem.textContent = "No enrolled face found in your profile.";
+          return;
+        }
+        const distance = euclideanDistance(capturedDescriptor, storedFaceDescriptor);
+        if (distance < THRESHOLD) {
+          messageElem.textContent = "Face matched! Marking attendance...";
+          stopCamera();
+          // Overlay captured image in the same container.
+          const mediaContainer = document.getElementById("media-container");
+          mediaContainer.style.backgroundImage = `url(${canvas.toDataURL("image/png")})`;
+          mediaContainer.style.backgroundSize = "cover";
+          document.getElementById("attendance-video").style.display = "none";
+          await markAttendance();
+        } else {
+          messageElem.textContent = "Face mismatch. Attendance not marked.";
+        }
+      } else {
+        messageElem.textContent = "No face detected. Please try again.";
+      }
+    }
+
+    // Pagination functions for the attendance table.
+    function displayAttendancePage(page) {
+      currentPage = page;
+      const tableBody = document.getElementById("attendance-table-body");
+      tableBody.innerHTML = "";
+      const startIndex = (page - 1) * recordsPerPage;
+      const endIndex = startIndex + recordsPerPage;
+      const pageRecords = attendanceRecords.slice(startIndex, endIndex);
+      if (pageRecords.length === 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="6" class="text-center">No attendance records found.</td>`;
+        tableBody.appendChild(tr);
+      } else {
+        let srNo = startIndex + 1;
+        pageRecords.forEach((data) => {
+          const ts = data.timestamp ? data.timestamp.toDate() : new Date();
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${srNo++}</td>
+            <td>${ts.toLocaleDateString()}</td>
+            <td>${data.employeeId || ""}</td>
+            <td>${data.name || ""}</td>
+            <td>${ts.toLocaleTimeString()}</td>
+            <td>${data.status || ""}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      }
+      updatePaginationControls();
+    }
+
+    function updatePaginationControls() {
+      const paginationContainer = document.getElementById("attendance-pagination");
+      paginationContainer.innerHTML = "";
+      const totalPages = Math.ceil(attendanceRecords.length / recordsPerPage);
+      if (totalPages <= 1) return;
+
+      // Previous button with left chevron icon.
+      const prevBtn = document.createElement("button");
+      prevBtn.className = "btn btn-secondary btn-sm me-2";
+      prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.addEventListener("click", () => {
+        if (currentPage > 1) displayAttendancePage(currentPage - 1);
+      });
+      paginationContainer.appendChild(prevBtn);
+
+      // Page number buttons.
+      for (let i = 1; i <= totalPages; i++) {
+        const pageBtn = document.createElement("button");
+        pageBtn.className = "btn btn-outline-secondary btn-sm me-2";
+        pageBtn.textContent = i;
+        if (i === currentPage) {
+          pageBtn.classList.remove("btn-outline-secondary");
+          pageBtn.classList.add("btn-secondary");
+        }
+        pageBtn.addEventListener("click", () => {
+          displayAttendancePage(i);
+        });
+        paginationContainer.appendChild(pageBtn);
+      }
+
+      // Next button with right chevron icon.
+      const nextBtn = document.createElement("button");
+      nextBtn.className = "btn btn-secondary btn-sm";
+      nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.addEventListener("click", () => {
+        if (currentPage < totalPages) displayAttendancePage(currentPage + 1);
+      });
+      paginationContainer.appendChild(nextBtn);
+    }
+
+    // Load attendance records and apply client-side pagination.
+    async function loadAttendanceRecords() {
+      const tableBody = document.getElementById("attendance-table-body");
+      tableBody.innerHTML = "";
+      if (!currentUser) return;
+      try {
+        const q = query(collection(db, "attendance"), where("userId", "==", currentUser.uid));
+        const querySnapshot = await getDocs(q);
+        attendanceRecords = [];
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          attendanceRecords.push(data);
+        });
+        // Sort records by timestamp descending.
+        attendanceRecords.sort((a, b) => {
+          const aTs = a.timestamp ? a.timestamp.toMillis() : 0;
+          const bTs = b.timestamp ? b.timestamp.toMillis() : 0;
+          return bTs - aTs;
+        });
+        displayAttendancePage(1);
+      } catch (error) {
+        console.error("Error loading attendance records:", error);
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading records.</td></tr>`;
+      }
+    }
+
+    // PWA Install prompt
+    let deferredPrompt;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById("install-button").style.display = "block";
+    });
+
+    document.getElementById("install-button").addEventListener("click", async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") {
+          console.log("User accepted the install prompt");
+        } else {
+          console.log("User dismissed the install prompt");
+        }
+        deferredPrompt = null;
+        document.getElementById("install-button").style.display = "none";
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Register service worker for PWA.
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js")
+            .then((registration) => {
+              console.log("ServiceWorker registration successful with scope: ", registration.scope);
+            })
+            .catch((err) => {
+              console.log("ServiceWorker registration failed: ", err);
+            });
+        });
+      }
+
+      // Profile elements.
+      const loginBtn = document.getElementById("login-btn");
+      const logoutBtn = document.getElementById("logout-btn");
+      const profileNameInput = document.getElementById("profile-name");
+      const profileEmployeeInput = document.getElementById("profile-employee");
+      const profileMobileInput = document.getElementById("profile-mobile");
+      const editNameBtn = document.getElementById("edit-name");
+      const editEmployeeBtn = document.getElementById("edit-employee");
+      const editMobileBtn = document.getElementById("edit-mobile");
+      const enrollBox = document.getElementById("face-enroll-status");
+      const faceImageUpload = document.getElementById("face-image-upload");
+      const faceStatus = document.getElementById("face-status");
+      const attendanceBtn = document.getElementById("attendance-btn");
+
+      // When enrollment text box is clicked.
+      enrollBox.addEventListener("click", () => {
+        if (enrollBox.value === "Face successfully enrolled") {
+          faceStatus.textContent = "Face already enrolled";
+          return;
+        }
+        faceImageUpload.click();
+      });
+
+      // Process face enrollment from file input.
+      faceImageUpload.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        faceStatus.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        img.onload = async () => {
+          const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+          if (detection) {
+            const descriptorArray = Array.from(detection.descriptor);
+            const userRef = doc(db, "users", currentUser.uid);
+            await updateDoc(userRef, { faceDescriptor: descriptorArray });
+            enrollBox.value = "Face successfully enrolled";
+            faceStatus.textContent = "Face successfully enrolled";
+            storedFaceDescriptor = descriptorArray;
+          } else {
+            enrollBox.value = "Click to enroll face";
+            faceStatus.textContent = "No face detected. Please try again.";
+          }
+        };
+      });
+
+      // Login event.
+      loginBtn.addEventListener("click", () => {
+        signInWithPopup(auth, provider)
+          .then(async (result) => {
+            currentUser = result.user;
+            const userRef = doc(db, "users", currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) {
+              await setDoc(userRef, {
+                name: currentUser.displayName,
+                employeeId: "",
+                mobileNumber: "",
+                email: currentUser.email,
+                createdAt: serverTimestamp(),
+              });
+            }
+            await loadProfile(currentUser);
+            loginBtn.style.display = "none";
+            logoutBtn.style.display = "inline-block";
+            attendanceBtn.disabled = false;
+            loadAttendanceRecords();
+          })
+          .catch((error) => console.error("Login error:", error));
+      });
+
+      // Logout event.
+      logoutBtn.addEventListener("click", () => {
+        signOut(auth)
+          .then(() => {
+            currentUser = null;
+            profileNameInput.value = "";
+            profileEmployeeInput.value = "";
+            profileMobileInput.value = "";
+            enrollBox.value = "Click to enroll face";
+            faceStatus.textContent = "";
+            loginBtn.style.display = "inline-block";
+            logoutBtn.style.display = "none";
+            attendanceBtn.disabled = true;
+            document.getElementById("attendance-table-body").innerHTML = "";
+            document.getElementById("attendance-pagination").innerHTML = "";
+          })
+          .catch((error) => console.error("Logout error:", error));
+      });
+
+      // Listen for auth state changes.
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          currentUser = user;
+          await loadProfile(user);
+          loginBtn.style.display = "none";
+          logoutBtn.style.display = "inline-block";
+          attendanceBtn.disabled = false;
+          loadAttendanceRecords();
+        } else {
+          currentUser = null;
+          profileNameInput.value = "";
+          profileEmployeeInput.value = "";
+          profileMobileInput.value = "";
+          enrollBox.value = "Click to enroll face";
+          faceStatus.textContent = "";
+          loginBtn.style.display = "inline-block";
+          logoutBtn.style.display = "none";
+          attendanceBtn.disabled = true;
+        }
+      });
+
+      // Attach event listeners for profile field edits.
+      editNameBtn.addEventListener("click", (e) =>
+        toggleEditField(e, profileNameInput, editNameBtn, "name")
+      );
+      editEmployeeBtn.addEventListener("click", (e) =>
+        toggleEditField(e, profileEmployeeInput, editEmployeeBtn, "employeeId")
+      );
+      editMobileBtn.addEventListener("click", (e) =>
+        toggleEditField(e, profileMobileInput, editMobileBtn, "mobileNumber")
+      );
+
+      // -----------------------------
+      // Attendance Modal Logic
+      // -----------------------------
+      const attendanceModal = new bootstrap.Modal(document.getElementById("attendanceModal"), {
+        backdrop: "static",
+        keyboard: false,
+      });
+      attendanceBtn.addEventListener("click", async () => {
+        document.getElementById("attendance-message").textContent = "";
+        // Reset media container: remove background image and show video.
+        const mediaContainer = document.getElementById("media-container");
+        mediaContainer.style.backgroundImage = "none";
+        document.getElementById("attendance-video").style.display = "block";
+        attendanceModal.show();
+        await startCamera();
+        // Auto capture after 3 seconds.
+        setTimeout(async () => {
+          await autoCaptureAndProcess();
+        }, 3000);
+      });
+      document.getElementById("attendanceModal").addEventListener("hidden.bs.modal", () => {
+        stopCamera();
+      });
+    });
+  </script>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-dark bg-primary fixed-top">
+    <div class="container d-flex justify-content-between align-items-center">
+      <a class="navbar-brand" href="#">
+        <i class="fas fa-fingerprint"></i> Attendance System
+      </a>
+      <!-- Account Dropdown (icon only) -->
+      <div class="dropdown">
+        <button class="btn btn-link text-white" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="fas fa-user-circle fa-2x"></i>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end" aria-labelledby="accountDropdown">
+          <!-- Profile Form -->
+          <div id="profileInfo">
+            <div class="mb-2">
+              <label class="form-label small">Name</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="profile-name" readonly />
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="edit-name">
+                  <i class="fas fa-pencil-alt"></i>
+                </button>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Employee ID</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="profile-employee" readonly />
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="edit-employee">
+                  <i class="fas fa-pencil-alt"></i>
+                </button>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Mobile Number</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="profile-mobile" readonly />
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="edit-mobile">
+                  <i class="fas fa-pencil-alt"></i>
+                </button>
+              </div>
+            </div>
+            <!-- Face Enrollment Section -->
+            <div class="mb-2">
+              <label class="form-label small">Face Enrollment</label>
+              <input type="text" id="face-enroll-status" class="form-control" value="Click to enroll face" readonly />
+              <input type="file" class="d-none" id="face-image-upload" accept="image/*" />
+              <small id="face-status" class="d-block mt-1"></small>
+            </div>
+            <div class="mt-3 text-center">
+              <button id="login-btn" class="btn btn-primary btn-sm">Login with Google</button>
+              <button id="logout-btn" class="btn btn-danger btn-sm" style="display: none;">Logout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content (Attendance Section) -->
+  <div class="container my-5 text-center">
+    <h3>Welcome to the Attendance System</h3>
+    <button id="attendance-btn" class="btn btn-success" disabled>
+      <i class="fas fa-check-circle me-2"></i> Record Attendance
+    </button>
+
+    <!-- Attendance Table -->
+    <div class="table-responsive">
+      <table class="table table-bordered mt-4" id="attendance-table">
+        <thead class="table-light">
+          <tr>
+            <th>Sr No</th>
+            <th>Date</th>
+            <th>Employee ID</th>
+            <th>Name</th>
+            <th>Punching Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="attendance-table-body">
+          <!-- Attendance records will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination Controls -->
+    <div id="attendance-pagination" class="d-flex justify-content-center"></div>
+  </div>
+
+  <!-- Attendance Modal -->
+  <div class="modal fade" id="attendanceModal" tabindex="-1" aria-labelledby="attendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="attendanceModalLabel">Face Attendance</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <!-- Media Container for Video and Captured Image -->
+          <div id="media-container">
+            <video id="attendance-video" autoplay muted></video>
+            <img id="captured-face" alt="Captured Face" />
+          </div>
+          <div id="attendance-message" class="mt-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PWA Install Button -->
+  <button id="install-button" class="btn btn-primary">
+    <i class="fas fa-download me-2"></i>Install App
+  </button>
+
+  <!-- Footer -->
+  <footer class="bg-dark text-white text-center py-3">
+    <div class="container">
+      <p class="mb-0">© 2025 Attendance System. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Service Worker Registration & Bootstrap JS -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js")
+          .then((registration) => {
+            console.log("ServiceWorker registration successful with scope:", registration.scope);
+          })
+          .catch((err) => {
+            console.log("ServiceWorker registration failed:", err);
+          });
+      });
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
