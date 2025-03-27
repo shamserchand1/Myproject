@@ -5,8 +5,8 @@
   <!-- PWA Meta Tags -->
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#007bff" />
-  <link rel="manifest" href="https://shamserchand.com.np/FRS/manifest.json" />
-  <link rel="apple-touch-icon" href="https://shamserchand.com.np/FRS/icon.png" />
+  <link rel="manifest" href="/FRS/manifest.json" />
+  <link rel="apple-touch-icon" href="/FRS/icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Attendance Dashboard</title>
   
@@ -17,7 +17,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet" />
   <!-- Face-api.js -->
-  <script defer src="https://shamserchand.com.np/FRS/face-api.min.js"></script>
+  <script defer src="/FRS/face-api.min.js"></script>
   
   <style>
     body {
@@ -34,7 +34,7 @@
       font-size: 1.75rem;
       font-weight: 700;
     }
-    /* Use hamburger menu icon instead of user icon */
+    /* Use hamburger (three-bar) icon instead of user icon */
     #accountDropdown {
       font-size: 2rem;
     }
@@ -165,11 +165,11 @@
     const recordsPerPage = 10;
     let currentPage = 1;
 
-    // Load face-api.js models from the root folder's "models" directory.
+    // Load face-api.js models from /FRS/models folder.
     async function loadFaceApiModels() {
-      await faceapi.nets.ssdMobilenetv1.loadFromUri("https://shamserchand.com.np/FRS/models");
-      await faceapi.nets.faceLandmark68Net.loadFromUri("https://shamserchand.com.np/FRS/models");
-      await faceapi.nets.faceRecognitionNet.loadFromUri("https://shamserchand.com.np/FRS/models");
+      await faceapi.nets.ssdMobilenetv1.loadFromUri("/FRS/models");
+      await faceapi.nets.faceLandmark68Net.loadFromUri("/FRS/models");
+      await faceapi.nets.faceRecognitionNet.loadFromUri("/FRS/models");
       console.log("Face-api models loaded.");
     }
     loadFaceApiModels();
@@ -194,7 +194,7 @@
       }
     }
 
-    // Update a single field in Firestore.
+    // Update a field in Firestore.
     async function updateField(fieldName, newValue) {
       if (currentUser) {
         const userRef = doc(db, "users", currentUser.uid);
@@ -202,7 +202,7 @@
       }
     }
 
-    // Toggle edit mode for profile fields.
+    // Toggle edit mode.
     async function toggleEditField(e, inputElement, buttonElement, fieldName) {
       e.stopPropagation();
       if (inputElement.hasAttribute("readonly")) {
@@ -216,7 +216,7 @@
       }
     }
 
-    // Helper: Euclidean distance for comparing face descriptors.
+    // Euclidean distance helper.
     function euclideanDistance(arr1, arr2) {
       let sum = 0;
       for (let i = 0; i < arr1.length; i++) {
@@ -224,7 +224,7 @@
       }
       return Math.sqrt(sum);
     }
-    const THRESHOLD = 0.6; // Adjust threshold as needed
+    const THRESHOLD = 0.6;
 
     // Attendance functions.
     let videoStream = null;
@@ -248,7 +248,7 @@
       video.srcObject = null;
     }
 
-    // Mark attendance only if no record exists within the last 5 minutes.
+    // Mark attendance only if not marked within the last 5 minutes.
     async function markAttendance() {
       if (!currentUser) return;
       try {
@@ -284,7 +284,7 @@
       }
     }
 
-    // Auto capture and process a frame from the video feed.
+    // Auto capture and process frame.
     async function autoCaptureAndProcess() {
       const video = document.getElementById("attendance-video");
       const messageElem = document.getElementById("attendance-message");
@@ -322,7 +322,7 @@
       }
     }
 
-    // Pagination functions for the attendance table.
+    // Pagination functions.
     function displayAttendancePage(page) {
       currentPage = page;
       const tableBody = document.getElementById("attendance-table-body");
@@ -416,14 +416,12 @@
       }
     }
 
-    // PWA Install Modal Logic
+    // PWA Install Modal logic.
     let deferredPrompt;
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      // Show the install modal when event fires.
-      const installModalEl = document.getElementById("installModal");
-      const installModal = new bootstrap.Modal(installModalEl);
+      const installModal = new bootstrap.Modal(document.getElementById("installModal"));
       installModal.show();
     });
 
@@ -437,17 +435,16 @@
           installModal.hide();
         });
       } else {
-        // Dismiss
         const installModal = bootstrap.Modal.getInstance(document.getElementById("installModal"));
         installModal.hide();
       }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Register service worker for PWA.
+      // Register service worker.
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("https://shamserchand.com.np/FRS/sw.js").then(
+          navigator.serviceWorker.register("/FRS/sw.js").then(
             (registration) => {
               console.log("ServiceWorker registration successful with scope:", registration.scope);
             },
@@ -603,7 +600,7 @@
   <!-- Navigation Bar -->
   <nav class="navbar navbar-dark bg-primary fixed-top">
     <div class="container d-flex justify-content-between align-items-center">
-      <a class="navbar-brand" href="#">
+      <a class="navbar-brand" href="/FRS/index.html">
         <i class="fas fa-fingerprint"></i> Attendance System
       </a>
       <!-- Account Dropdown (hamburger menu) -->
@@ -612,6 +609,7 @@
           <i class="fas fa-bars"></i>
         </button>
         <div class="dropdown-menu dropdown-menu-end" aria-labelledby="accountDropdown">
+          <!-- Profile Form -->
           <div id="profileInfo">
             <div class="mb-2">
               <label class="form-label small">Name</label>
@@ -640,6 +638,7 @@
                 </button>
               </div>
             </div>
+            <!-- Face Enrollment Section -->
             <div class="mb-2">
               <label class="form-label small">Face Enrollment</label>
               <input type="text" id="face-enroll-status" class="form-control" value="Click to enroll face" readonly />
@@ -712,8 +711,8 @@
           <p>For a native app experience, please install our Attendance App.</p>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" onclick="handleInstallChoice('install')">Install</button>
-          <button type="button" class="btn btn-secondary" onclick="handleInstallChoice('cancel')">Maybe Later</button>
+          <button type="button" id="install-modal-install" class="btn btn-primary">Install</button>
+          <button type="button" id="install-modal-cancel" class="btn btn-secondary">Maybe Later</button>
         </div>
       </div>
     </div>
@@ -730,7 +729,7 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("https://shamserchand.com.np/FRS/sw.js")
+        navigator.serviceWorker.register("/FRS/sw.js")
           .then((registration) => {
             console.log("ServiceWorker registration successful with scope:", registration.scope);
           })
@@ -740,7 +739,7 @@
       });
     }
   </script>
-
+  
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
