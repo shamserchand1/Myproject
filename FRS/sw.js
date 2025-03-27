@@ -26,7 +26,8 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .catch(() => caches.match(event.request))
-      .catch(() => caches.match('/error.html'))
+      .catch(() => caches.match('https://shamserchand.com.np/FRS/
+/error.html'))
   );
 });
 
