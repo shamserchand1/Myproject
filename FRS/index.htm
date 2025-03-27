@@ -11,28 +11,20 @@
   <title>Attendance Dashboard</title>
   
   <!-- Bootstrap CSS -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Font Awesome -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-  />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
   <!-- Google Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet" />
   <!-- Face-api.js -->
-  <script defer src="face-api.min.js"></script>
+  <script defer src="/face-api.min.js"></script>
   
   <style>
     body {
       font-family: "Roboto", sans-serif;
       background: #f8f9fa;
       padding-top: 70px;
+      margin-bottom: 60px; /* Reserve space for fixed footer */
     }
     /* Navbar styling */
     .navbar {
@@ -42,13 +34,21 @@
       font-size: 1.75rem;
       font-weight: 700;
     }
-    /* Install Button */
-    #install-button {
+    /* Use hamburger menu icon instead of user icon */
+    #accountDropdown {
+      font-size: 2rem;
+    }
+    /* Install Modal styles */
+    .modal-install .modal-content {
+      border-radius: 10px;
+      padding: 20px;
+    }
+    /* Fixed Footer */
+    footer {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      display: none;
-      z-index: 1000;
+      bottom: 0;
+      width: 100%;
+      z-index: 999;
     }
     /* Dropdown styling */
     .dropdown {
@@ -165,11 +165,11 @@
     const recordsPerPage = 10;
     let currentPage = 1;
 
-    // Load face-api.js models from the "models" folder.
+    // Load face-api.js models from the root folder's "models" directory.
     async function loadFaceApiModels() {
-      await faceapi.nets.ssdMobilenetv1.loadFromUri("https://shamserchand.com.np/FRS/models");
-      await faceapi.nets.faceLandmark68Net.loadFromUri("https://shamserchand.com.np/FRS/models");
-      await faceapi.nets.faceRecognitionNet.loadFromUri("https://shamserchand.com.np/FRS/models");
+      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
+      await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
+      await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
       console.log("Face-api models loaded.");
     }
     loadFaceApiModels();
@@ -226,7 +226,7 @@
     }
     const THRESHOLD = 0.6; // Adjust threshold as needed
 
-    // Attendance functions
+    // Attendance functions.
     let videoStream = null;
     async function startCamera() {
       const video = document.getElementById("attendance-video");
@@ -252,7 +252,6 @@
     async function markAttendance() {
       if (!currentUser) return;
       try {
-        // Query all attendance records for this user.
         const attendanceQuery = query(collection(db, "attendance"), where("userId", "==", currentUser.uid));
         const querySnapshot = await getDocs(attendanceQuery);
         let lastTimestamp = 0;
@@ -266,7 +265,6 @@
           }
         });
         const now = Date.now();
-        // Check if last attendance is within 5 minutes.
         if (lastTimestamp !== 0 && (now - lastTimestamp) < 5 * 60 * 1000) {
           document.getElementById("attendance-message").textContent = "Attendance already marked in the last 5 minutes.";
           return;
@@ -296,7 +294,6 @@
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const context = canvas.getContext("2d");
-      // Flip horizontally for processing.
       context.translate(canvas.width, 0);
       context.scale(-1, 1);
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -312,7 +309,6 @@
         if (distance < THRESHOLD) {
           messageElem.textContent = "Face matched! Marking attendance...";
           stopCamera();
-          // Overlay captured image in the same container.
           const mediaContainer = document.getElementById("media-container");
           mediaContainer.style.backgroundImage = `url(${canvas.toDataURL("image/png")})`;
           mediaContainer.style.backgroundSize = "cover";
@@ -363,7 +359,6 @@
       const totalPages = Math.ceil(attendanceRecords.length / recordsPerPage);
       if (totalPages <= 1) return;
 
-      // Previous button with left chevron icon.
       const prevBtn = document.createElement("button");
       prevBtn.className = "btn btn-secondary btn-sm me-2";
       prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
@@ -373,7 +368,6 @@
       });
       paginationContainer.appendChild(prevBtn);
 
-      // Page number buttons.
       for (let i = 1; i <= totalPages; i++) {
         const pageBtn = document.createElement("button");
         pageBtn.className = "btn btn-outline-secondary btn-sm me-2";
@@ -388,7 +382,6 @@
         paginationContainer.appendChild(pageBtn);
       }
 
-      // Next button with right chevron icon.
       const nextBtn = document.createElement("button");
       nextBtn.className = "btn btn-secondary btn-sm";
       nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
@@ -399,7 +392,6 @@
       paginationContainer.appendChild(nextBtn);
     }
 
-    // Load attendance records and apply client-side pagination.
     async function loadAttendanceRecords() {
       const tableBody = document.getElementById("attendance-table-body");
       tableBody.innerHTML = "";
@@ -412,7 +404,6 @@
           const data = docSnap.data();
           attendanceRecords.push(data);
         });
-        // Sort records by timestamp descending.
         attendanceRecords.sort((a, b) => {
           const aTs = a.timestamp ? a.timestamp.toMillis() : 0;
           const bTs = b.timestamp ? b.timestamp.toMillis() : 0;
@@ -425,39 +416,45 @@
       }
     }
 
-    // PWA Install prompt
+    // PWA Install Modal Logic
     let deferredPrompt;
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      document.getElementById("install-button").style.display = "block";
+      // Show the install modal when event fires.
+      const installModalEl = document.getElementById("installModal");
+      const installModal = new bootstrap.Modal(installModalEl);
+      installModal.show();
     });
 
-    document.getElementById("install-button").addEventListener("click", async () => {
-      if (deferredPrompt) {
+    function handleInstallChoice(choice) {
+      if (choice === "install" && deferredPrompt) {
         deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === "accepted") {
-          console.log("User accepted the install prompt");
-        } else {
-          console.log("User dismissed the install prompt");
-        }
-        deferredPrompt = null;
-        document.getElementById("install-button").style.display = "none";
+        deferredPrompt.userChoice.then((result) => {
+          console.log("User choice:", result.outcome);
+          deferredPrompt = null;
+          const installModal = bootstrap.Modal.getInstance(document.getElementById("installModal"));
+          installModal.hide();
+        });
+      } else {
+        // Dismiss
+        const installModal = bootstrap.Modal.getInstance(document.getElementById("installModal"));
+        installModal.hide();
       }
-    });
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
       // Register service worker for PWA.
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js")
-            .then((registration) => {
-              console.log("ServiceWorker registration successful with scope: ", registration.scope);
-            })
-            .catch((err) => {
-              console.log("ServiceWorker registration failed: ", err);
-            });
+          navigator.serviceWorker.register("/sw.js").then(
+            (registration) => {
+              console.log("ServiceWorker registration successful with scope:", registration.scope);
+            },
+            (err) => {
+              console.log("ServiceWorker registration failed:", err);
+            }
+          );
         });
       }
 
@@ -475,7 +472,6 @@
       const faceStatus = document.getElementById("face-status");
       const attendanceBtn = document.getElementById("attendance-btn");
 
-      // When enrollment text box is clicked.
       enrollBox.addEventListener("click", () => {
         if (enrollBox.value === "Face successfully enrolled") {
           faceStatus.textContent = "Face already enrolled";
@@ -484,7 +480,6 @@
         faceImageUpload.click();
       });
 
-      // Process face enrollment from file input.
       faceImageUpload.addEventListener("change", async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -507,7 +502,6 @@
         };
       });
 
-      // Login event.
       loginBtn.addEventListener("click", () => {
         signInWithPopup(auth, provider)
           .then(async (result) => {
@@ -532,7 +526,6 @@
           .catch((error) => console.error("Login error:", error));
       });
 
-      // Logout event.
       logoutBtn.addEventListener("click", () => {
         signOut(auth)
           .then(() => {
@@ -551,7 +544,6 @@
           .catch((error) => console.error("Logout error:", error));
       });
 
-      // Listen for auth state changes.
       onAuthStateChanged(auth, async (user) => {
         if (user) {
           currentUser = user;
@@ -573,7 +565,6 @@
         }
       });
 
-      // Attach event listeners for profile field edits.
       editNameBtn.addEventListener("click", (e) =>
         toggleEditField(e, profileNameInput, editNameBtn, "name")
       );
@@ -593,13 +584,11 @@
       });
       attendanceBtn.addEventListener("click", async () => {
         document.getElementById("attendance-message").textContent = "";
-        // Reset media container: remove background image and show video.
         const mediaContainer = document.getElementById("media-container");
         mediaContainer.style.backgroundImage = "none";
         document.getElementById("attendance-video").style.display = "block";
         attendanceModal.show();
         await startCamera();
-        // Auto capture after 3 seconds.
         setTimeout(async () => {
           await autoCaptureAndProcess();
         }, 3000);
@@ -617,13 +606,12 @@
       <a class="navbar-brand" href="#">
         <i class="fas fa-fingerprint"></i> Attendance System
       </a>
-      <!-- Account Dropdown (icon only) -->
+      <!-- Account Dropdown (hamburger menu) -->
       <div class="dropdown">
         <button class="btn btn-link text-white" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="fas fa-bars fa-2x"></i>
+          <i class="fas fa-bars"></i>
         </button>
         <div class="dropdown-menu dropdown-menu-end" aria-labelledby="accountDropdown">
-          <!-- Profile Form -->
           <div id="profileInfo">
             <div class="mb-2">
               <label class="form-label small">Name</label>
@@ -652,7 +640,6 @@
                 </button>
               </div>
             </div>
-            <!-- Face Enrollment Section -->
             <div class="mb-2">
               <label class="form-label small">Face Enrollment</label>
               <input type="text" id="face-enroll-status" class="form-control" value="Click to enroll face" readonly />
@@ -676,7 +663,6 @@
       <i class="fas fa-check-circle me-2"></i> Record Attendance
     </button>
 
-    <!-- Attendance Table -->
     <div class="table-responsive">
       <table class="table table-bordered mt-4" id="attendance-table">
         <thead class="table-light">
@@ -689,12 +675,9 @@
             <th>Status</th>
           </tr>
         </thead>
-        <tbody id="attendance-table-body">
-          <!-- Attendance records will be inserted here -->
-        </tbody>
+        <tbody id="attendance-table-body"></tbody>
       </table>
     </div>
-    <!-- Pagination Controls -->
     <div id="attendance-pagination" class="d-flex justify-content-center"></div>
   </div>
 
@@ -707,7 +690,6 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body text-center">
-          <!-- Media Container for Video and Captured Image -->
           <div id="media-container">
             <video id="attendance-video" autoplay muted></video>
             <img id="captured-face" alt="Captured Face" />
@@ -718,19 +700,33 @@
     </div>
   </div>
 
-  <!-- PWA Install Button -->
-  <button id="install-button" class="btn btn-primary">
-    <i class="fas fa-download me-2"></i>Install App
-  </button>
+  <!-- Install Modal -->
+  <div class="modal fade modal-install" id="installModal" tabindex="-1" aria-labelledby="installModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="installModalLabel">Install Attendance App</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>For a native app experience, please install our Attendance App.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="handleInstallChoice('install')">Install</button>
+          <button type="button" class="btn btn-secondary" onclick="handleInstallChoice('cancel')">Maybe Later</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <!-- Footer -->
+  <!-- Fixed Footer -->
   <footer class="bg-dark text-white text-center py-3">
     <div class="container">
       <p class="mb-0">© 2025 Attendance System. All rights reserved.</p>
     </div>
   </footer>
 
-  <!-- Service Worker Registration & Bootstrap JS -->
+  <!-- Service Worker Registration -->
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -744,6 +740,8 @@
       });
     }
   </script>
+
+  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
