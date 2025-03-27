@@ -1,7 +1,7 @@
 const CACHE_NAME = 'attendance-cache-v1';
 const urlsToCache = [
   '/',
-  '/index.htm',
+  '/index.html',
   '/manifest.json',
   '/icon.png',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
