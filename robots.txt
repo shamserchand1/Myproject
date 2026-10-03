@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://shamserchand1.github.io/Myproject/sitemap.xml
